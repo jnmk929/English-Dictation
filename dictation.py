@@ -3,7 +3,7 @@
 # 入力:
 # ○ ・大文字小文字関係なく入力できる　入力は小文字に統一
 # △・スペース等はスキップ ひとまず２連続　後々固有名詞など長めでも対応できるように
-#   ・いい感じで自動改行する 単位ごとに改行
+# ○ ・いい感じで自動改行する 単位ごとに改行
 #   ・１文字ヒント機能
 #   ・タイプミスの効果
 # 音声:
@@ -20,7 +20,10 @@ import tkinter as tk
 
 class Application(tk.Frame):
     count = 0
+    row = 1
+    true_word = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','1','2','3','4','5','6','7','8','9','0']
     skip_word = [" ",".",",",";","'","-","?","’"]
+    row_limit_word = 60
     def __init__(self,master,sentence):
         super().__init__(master)
         self.pack()
@@ -37,9 +40,9 @@ class Application(tk.Frame):
     def input(self,event):
         flag_keyword = False
         flag_skip = 0
+        flag_row = False
         key = event.keysym  #入力の受取
-
-        if key == self.sentence[self.count].lower():    #
+        if key == self.sentence[self.count].lower():
             self.count += 1
             flag_keyword = True
         if self.sentence[self.count] in self.skip_word:
@@ -49,15 +52,21 @@ class Application(tk.Frame):
             else:
                 self.count += 2
                 flag_skip = 2
+        if self.count > self.row_limit_word*self.row and self.sentence[self.count-1] == ' ':
+            self.sentence.insert(self.count,'\n')
+            self.count += 1
+            self.row += 1
+            flag_row = True
 
         if self.count == 0:     #一文字目
             self.buffer.set(key)
         elif (flag_skip == 0 and flag_keyword == True and key == self.sentence[self.count-1].lower()) \
-          or (flag_skip == 1 and key == self.sentence[self.count-2].lower()):
+          or (flag_skip == 1 and key == self.sentence[self.count-2].lower())\
+          or flag_row == True:
             self.buffer.set(''.join(self.sentence[:self.count]))
         elif flag_skip == 2:
             self.buffer.set(''.join(self.sentence[:self.count-1]))
-        else:
+        elif key in self.true_word:
             self.buffer.set(''.join(self.sentence[:self.count])+key)
 
 textfile = './data/part4.txt'
