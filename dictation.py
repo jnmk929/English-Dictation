@@ -1,22 +1,32 @@
 import tkinter as tk
 
-root = tk.Tk()
-root.geometry('300x200')
-root.title('サンプルプログラム')
+class Application(tk.Frame):
+    def __init__(self,master,sentence):
+        super().__init__(master)
+        self.pack()
+        self.sentence = sentence
+        
+        self.master.geometry('1400x800')
+        self.master.title('ディクテーション')
+        self.buffer = tk.StringVar()
+        self.a = tk.Label(textvariable=self.buffer,font=('',30)) 
+        self.a.pack()
+        self.a.bind('<Key>',self.input)
+        self.a.focus_set()
+    
+    def input(self,event):
+        key = event.keysym  #入力の受取
+        self.buffer.set(key)
 
-buffer = tk.StringVar() # ①   入力情報を変数に代入
-#buffer.set('')
+textfile = './data/part4.txt'
 
-# キーの表示
-def print_key(event): # ③
-    key = event.keysym  #キーの識別番号
-    buffer.set(key)
+def main():
+    with open(textfile,'r') as f:
+        line = f.readlines()
+    sentence = list(line[0])    #ファイルには1行の文章の予定
+    root = tk.Tk()
+    app = Application(master=root,sentence=sentence)#Inherit
+    app.mainloop()
 
-# ラベルの設定
-tk.Label(text='何か入力してください。').pack()
-a = tk.Label(textvariable=buffer) # ②   表示用ラベルに紐付ける
-a.pack()
-a.bind('<Key>', print_key) # ④ ボタンが押されたときに実行
-a.focus_set() # ⑤ キー入力のおまじない
-
-root.mainloop()
+if __name__ == "__main__":
+    main()
