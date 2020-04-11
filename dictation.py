@@ -5,7 +5,7 @@
 # △・スペース等はスキップ ひとまず２連続　後々固有名詞など長めでも対応できるように
 # ○ ・いい感じで自動改行する 単位ごとに改行
 #   ・１文字ヒント機能
-#   ・タイプミスの効果
+# ○ ・タイプミスの効果
 # 音声:
 #   ・wavファイルが再生できる
 #   ・繰り返し　一時停止
@@ -38,6 +38,7 @@ class Application(tk.Frame):
         self.a.focus_set()
     
     def input(self,event):
+        self.a['fg'] = '#000000'
         flag_keyword = False
         flag_skip = 0
         flag_row = False
@@ -67,6 +68,7 @@ class Application(tk.Frame):
         elif flag_skip == 2:
             self.buffer.set(''.join(self.sentence[:self.count-1]))
         elif key in self.true_word:
+            self.a['fg'] = '#ff0000'
             self.buffer.set(''.join(self.sentence[:self.count])+key)
 
 textfile = './data/part4.txt'
