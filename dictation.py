@@ -35,11 +35,10 @@ class Application(tk.Frame):
         self.a.focus_set()
     
     def input(self,event):
-        #flag_keyword = False
-        #flag_skip = 0
+        flag_keyword = False
+        flag_skip = 0
         key = event.keysym  #入力の受取
-        self.buffer.set(key)
-        '''
+
         if key == self.sentence[self.count].lower():    #
             self.count += 1
             flag_keyword = True
@@ -60,7 +59,7 @@ class Application(tk.Frame):
             self.buffer.set(''.join(self.sentence[:self.count-1]))
         else:
             self.buffer.set(''.join(self.sentence[:self.count])+key)
-        '''
+
 textfile = './data/part4.txt'
 
 def main():
