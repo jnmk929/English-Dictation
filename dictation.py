@@ -8,10 +8,11 @@
 # ○ ・タイプミスの効果
 # 音声:
 # ○ ・wavファイルが再生できる
-# ☓ ・繰り返し　一時停止
+#   ・繰り返し　一時停止
 # ☓ ・数秒飛ばし戻し 3s 5s
-# ○     変更 -> soundファイルを空白部分で分割
+# △    変更 -> soundファイルを空白部分で分割  分割の調整が必要
 #              キーボードとマウスの入力から再生箇所を変える
+#              プロセス間でのデータのやりとり
 # その他:
 #   ・採点機能　間違い数のカウント　
 #   ・入力後に解答の表示
@@ -23,6 +24,8 @@ from pydub import AudioSegment      #sound分割用
 from pydub.silence import split_on_silence
 import os   #分割したsoundの読み込み用
 import subprocess #音楽流す aplay
+from multiprocessing import Process
+import glob     #すでにあるファイルの削除用
 
 class Application(tk.Frame):
     count = 0
@@ -65,7 +68,7 @@ class Application(tk.Frame):
             self.row += 1
             flag_row = True
 
-        if self.count == 0:     #一文字目
+        if self.count == 0 and key in self.true_word:     #一文字目
             self.buffer.set(key)
         elif (flag_skip == 0 and flag_keyword == True and key == self.sentence[self.count-1].lower()) \
           or (flag_skip == 1 and key == self.sentence[self.count-2].lower())\
@@ -78,16 +81,17 @@ class Application(tk.Frame):
             self.buffer.set(''.join(self.sentence[:self.count])+key)
 
 def sound(audio_file):
-    track = 0
+    track = 1
     while(1):
         if track >= 0:
-            subprocess.run(['aplay',audio_file[track]])
+            for i in range(5):
+                subprocess.run(['aplay',audio_file[track]])
             track += 1
         if track == len(audio_file):
-            track = 0
+            track = -1
 
 textfile = './data/text/part4.txt'
-origin_sound_file = './data/sound/listening73.wav'
+origin_sound_file = './data/sound/listening85.wav'
 split_sound_dir = './data/split_sound/'
 
 def main():
@@ -95,9 +99,10 @@ def main():
         line = f.readlines()
     sentence = list(line[0])    #ファイルには1行の文章の予定
     
+    for path in glob.glob(split_sound_dir+'*.wav'):
+        os.remove(path)
     origin_sound = AudioSegment.from_file(origin_sound_file,format='wav')   #無音部分で区切る
-    chunks = split_on_silence(origin_sound, min_silence_len=100, silence_thresh=-60, keep_silence=6)
-    subprocess.run(['rm','output*'])
+    chunks = split_on_silence(origin_sound, min_silence_len=50, silence_thresh=-60, keep_silence=6)
     for i, chunk in enumerate(chunks):
         chunk.export(split_sound_dir+'output' + str(i) +'.wav', format='wav')
     
@@ -106,12 +111,12 @@ def main():
         file_name = split_sound_dir+f
         audio_file.append(file_name)
     audio_file.sort()
+    p = Process(target=sound,args=(audio_file,))
+    p.start()
 
-    sound(audio_file)
-
-    #root = tk.Tk()
-    #app = Application(master=root,sentence=sentence)#Inherit
-    #app.mainloop()
+    root = tk.Tk()
+    app = Application(master=root,sentence=sentence)#Inherit
+    app.mainloop()
 
 if __name__ == "__main__":
     main()
