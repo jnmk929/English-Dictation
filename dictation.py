@@ -7,9 +7,11 @@
 #   ・１文字ヒント機能
 # ○ ・タイプミスの効果
 # 音声:
-#   ・wavファイルが再生できる
-#   ・繰り返し　一時停止
-#   ・数秒飛ばし戻し 3s 5s
+# ○ ・wavファイルが再生できる
+# ☓ ・繰り返し　一時停止
+# ☓ ・数秒飛ばし戻し 3s 5s
+# ○     変更 -> soundファイルを空白部分で分割
+#              キーボードとマウスの入力から再生箇所を変える
 # その他:
 #   ・採点機能　間違い数のカウント　
 #   ・入力後に解答の表示
@@ -17,6 +19,10 @@
 #   ・入力文字を予め ＿ で伏せて見せておく
 
 import tkinter as tk
+from pydub import AudioSegment      #sound分割用
+from pydub.silence import split_on_silence
+import os   #分割したsoundの読み込み用
+import subprocess #音楽流す aplay
 
 class Application(tk.Frame):
     count = 0
@@ -71,15 +77,41 @@ class Application(tk.Frame):
             self.a['fg'] = '#ff0000'
             self.buffer.set(''.join(self.sentence[:self.count])+key)
 
-textfile = './data/part4.txt'
+def sound(audio_file):
+    track = 0
+    while(1):
+        if track >= 0:
+            subprocess.run(['aplay',audio_file[track]])
+            track += 1
+        if track == len(audio_file):
+            track = 0
+
+textfile = './data/text/part4.txt'
+origin_sound_file = './data/sound/listening73.wav'
+split_sound_dir = './data/split_sound/'
 
 def main():
     with open(textfile,'r') as f:
         line = f.readlines()
     sentence = list(line[0])    #ファイルには1行の文章の予定
-    root = tk.Tk()
-    app = Application(master=root,sentence=sentence)#Inherit
-    app.mainloop()
+    
+    origin_sound = AudioSegment.from_file(origin_sound_file,format='wav')   #無音部分で区切る
+    chunks = split_on_silence(origin_sound, min_silence_len=100, silence_thresh=-60, keep_silence=6)
+    subprocess.run(['rm','output*'])
+    for i, chunk in enumerate(chunks):
+        chunk.export(split_sound_dir+'output' + str(i) +'.wav', format='wav')
+    
+    audio_file = []
+    for f in os.listdir(split_sound_dir):
+        file_name = split_sound_dir+f
+        audio_file.append(file_name)
+    audio_file.sort()
+
+    sound(audio_file)
+
+    #root = tk.Tk()
+    #app = Application(master=root,sentence=sentence)#Inherit
+    #app.mainloop()
 
 if __name__ == "__main__":
     main()
