@@ -8,10 +8,10 @@
 # ○ ・タイプミスの効果
 # 音声:
 # △・wavファイルが再生できる　子プロセスが終了しても音声は止まらないから、pygame pyaudio等に変えたほうがいい
-#   ・繰り返し　一時停止
+# ○ ・繰り返し　一時停止
 # ☓ ・数秒飛ばし戻し 3s 5s
 # ○    変更 -> soundファイルを空白部分で分割  分割の調整が必要
-#              キーボードとマウスの入力から再生箇所を変える
+# △            キーボードとマウスの入力から再生箇所を変える
 # ○            プロセス間でのデータのやりとり
 # その他:
 #   ・採点機能　間違い数のカウント　
@@ -20,15 +20,21 @@
 #   ・入力文字を予め ＿ で伏せて見せておく
 #   ・同じ問題が連続して流れないように
 #   ・経過時間の計測,表示
-#   ・リセットやり直し
+#   ・全体のリセットやり直し
+#
+#キーボード機能:
+#   ・space -> stop or start
+#   ・Shift_L -> back one track
+#   ・Shift_R -> skip one track
+#   ・Return(Enter) -> repeat
 
 import tkinter as tk
-from pydub import AudioSegment      #sound分割用
+from pydub import AudioSegment
 from pydub.silence import split_on_silence
-import os   #もとのファイルの削除用
-import subprocess #音楽流す aplay
+import os
+import subprocess
 from multiprocessing import Process,Value
-import glob     #すでにあるファイルの削除
+import glob
 import time
 import re
 
@@ -73,21 +79,24 @@ class Application(tk.Frame):
             self.row += 1
             flag_row = True
 
-        if self.count == 0:# and key in self.true_word:     #一文字目
-            self.buffer.set(key)
-        elif (flag_skip == 0 and flag_keyword == True and key == self.sentence[self.count-1].lower()) \
+        if (flag_skip == 0 and flag_keyword == True and key == self.sentence[self.count-1].lower()) \
           or (flag_skip == 1 and key == self.sentence[self.count-2].lower())\
           or flag_row == True:
             self.buffer.set(''.join(self.sentence[:self.count]))
         elif flag_skip == 2:
             self.buffer.set(''.join(self.sentence[:self.count-1]))
-        #elif key in self.true_word:
         else:
             if key in self.true_word:
                 self.a['fg'] = '#ff0000'
                 self.buffer.set(''.join(self.sentence[:self.count])+key)
             elif key == 'space':
-                self.num.value = 100
+                self.num.value = 1
+            elif key == 'Shift_L':
+                self.num.value = 2
+            elif key == 'Shift_R':
+                self.num.value = 3
+            elif key == 'Return':
+                self.num.value = 4
 
 def sound(audio_file,num):
     track = 0
@@ -95,18 +104,16 @@ def sound(audio_file,num):
         if track >= 0:
             subprocess.run(['aplay',audio_file[track]])
             track += 1
-        '''
         if num.value != -1:
-            if num.value == 1:  #press space and reset
-                track = 0
-            elif num.value == 2:  #press Left and back one track
+            if num.value == 1:  #press space and stop  start
+                track = -track
+            elif num.value == 2:  #press Shift_L and back one track
                 track -= 2
-            elif num.value == 3:  #press Right and skip one track
+            elif num.value == 3:  #press Shift_R and skip one track
                 track += 1
-            elif num.value == 4:  #press Up or Down and repeat this track
+            elif num.value == 4:  #press Retrun(Enter) and repeat this track
                 track -= 1
             num.value = -1
-        '''
         if track >= len(audio_file):
             track = -1
 
@@ -133,12 +140,10 @@ def main():
     num = Value('i',-1)
     p = Process(target=sound,args=(audio_file,num))
     p.start()
-    '''
     root = tk.Tk()
-    app = Application(master=root,sentence=sentence,num=num)#Inherit
+    app = Application(master=root,sentence=sentence,num=num)
     app.mainloop()
     p.terminate()
-    '''
 
 
 if __name__ == "__main__":
