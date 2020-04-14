@@ -10,7 +10,7 @@
 # △・wavファイルが再生できる　子プロセスが終了しても音声は止まらないから、pygame pyaudio等に変えたほうがいい
 #   ・繰り返し　一時停止
 # ☓ ・数秒飛ばし戻し 3s 5s
-# △    変更 -> soundファイルを空白部分で分割  分割の調整が必要
+# ○    変更 -> soundファイルを空白部分で分割  分割の調整が必要
 #              キーボードとマウスの入力から再生箇所を変える
 # ○            プロセス間でのデータのやりとり
 # その他:
@@ -30,6 +30,7 @@ import subprocess #音楽流す aplay
 from multiprocessing import Process,Value
 import glob     #すでにあるファイルの削除
 import time
+import re
 
 class Application(tk.Frame):
     count = 0
@@ -72,7 +73,7 @@ class Application(tk.Frame):
             self.row += 1
             flag_row = True
 
-        if self.count == 0 and key in self.true_word:     #一文字目
+        if self.count == 0:# and key in self.true_word:     #一文字目
             self.buffer.set(key)
         elif (flag_skip == 0 and flag_keyword == True and key == self.sentence[self.count-1].lower()) \
           or (flag_skip == 1 and key == self.sentence[self.count-2].lower())\
@@ -90,27 +91,25 @@ class Application(tk.Frame):
 
 def sound(audio_file,num):
     track = 0
-    #press_key_func = {1:0, 2:-1, 3:-2, 4:+1} #押したキーに合わせてtrackを移動させる
     while(1):
-        '''
         if track >= 0:
             subprocess.run(['aplay',audio_file[track]])
             track += 1
-        switch(num.Value):
-            if num.value == 1:    #pless space
-            track = 0
-            num.value
-        
+        '''
+        if num.value != -1:
+            if num.value == 1:  #press space and reset
+                track = 0
+            elif num.value == 2:  #press Left and back one track
+                track -= 2
+            elif num.value == 3:  #press Right and skip one track
+                track += 1
+            elif num.value == 4:  #press Up or Down and repeat this track
+                track -= 1
+            num.value = -1
+        '''
         if track >= len(audio_file):
             track = -1
-        '''
-        if track >= 0:
-            time.sleep(10)
-            track += 1
-        if num.value == 100:
-            track += 100
-            num.value = -1
-        print(track)
+
 
 textfile = './data/text/part4.txt'
 origin_sound_file = './data/sound/listening85.wav'
@@ -124,20 +123,22 @@ def main():
     for path in glob.glob(split_sound_dir+'*.wav'):
         os.remove(path)
     origin_sound = AudioSegment.from_file(origin_sound_file,format='wav')   #無音部分で区切る
-    chunks = split_on_silence(origin_sound, min_silence_len=50, silence_thresh=-60, keep_silence=6)
+    chunks = split_on_silence(origin_sound, min_silence_len=150, silence_thresh=-55, keep_silence=6)
     for i, chunk in enumerate(chunks):
-        chunk.export(split_sound_dir+'output' + str(i) +'.wav', format='wav')
+        chunk.export(split_sound_dir+ str(i) +'.wav', format='wav')
 
     audio_file = glob.glob(split_sound_dir+'*.wav')
-    audio_file.sort()
-
+    num = lambda val : int(re.sub("\\D","",val))  #\\D  任意の数字以外置換
+    audio_file.sort(key=num)
     num = Value('i',-1)
     p = Process(target=sound,args=(audio_file,num))
     p.start()
+    '''
     root = tk.Tk()
     app = Application(master=root,sentence=sentence,num=num)#Inherit
     app.mainloop()
     p.terminate()
+    '''
 
 
 if __name__ == "__main__":
