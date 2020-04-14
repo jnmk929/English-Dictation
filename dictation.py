@@ -7,25 +7,29 @@
 #   ・１文字ヒント機能
 # ○ ・タイプミスの効果
 # 音声:
-# ○ ・wavファイルが再生できる
+# △・wavファイルが再生できる　子プロセスが終了しても音声は止まらないから、pygame pyaudio等に変えたほうがいい
 #   ・繰り返し　一時停止
 # ☓ ・数秒飛ばし戻し 3s 5s
 # △    変更 -> soundファイルを空白部分で分割  分割の調整が必要
 #              キーボードとマウスの入力から再生箇所を変える
-#              プロセス間でのデータのやりとり
+# ○            プロセス間でのデータのやりとり
 # その他:
 #   ・採点機能　間違い数のカウント　
 #   ・入力後に解答の表示
 #   ・複数の問題に対応
 #   ・入力文字を予め ＿ で伏せて見せておく
+#   ・同じ問題が連続して流れないように
+#   ・経過時間の計測,表示
+#   ・リセットやり直し
 
 import tkinter as tk
 from pydub import AudioSegment      #sound分割用
 from pydub.silence import split_on_silence
-import os   #分割したsoundの読み込み用
+import os   #もとのファイルの削除用
 import subprocess #音楽流す aplay
-from multiprocessing import Process
-import glob     #すでにあるファイルの削除用
+from multiprocessing import Process,Value
+import glob     #すでにあるファイルの削除
+import time
 
 class Application(tk.Frame):
     count = 0
@@ -33,11 +37,11 @@ class Application(tk.Frame):
     true_word = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','1','2','3','4','5','6','7','8','9','0']
     skip_word = [" ",".",",",";","'","-","?","’"]
     row_limit_word = 60
-    def __init__(self,master,sentence):
+    def __init__(self,master,sentence,num):
         super().__init__(master)
         self.pack()
         self.sentence = sentence
-        
+        self.num = num
         self.master.geometry('1400x800')
         self.master.title('ディクテーション')
         self.buffer = tk.StringVar()
@@ -76,19 +80,37 @@ class Application(tk.Frame):
             self.buffer.set(''.join(self.sentence[:self.count]))
         elif flag_skip == 2:
             self.buffer.set(''.join(self.sentence[:self.count-1]))
-        elif key in self.true_word:
-            self.a['fg'] = '#ff0000'
-            self.buffer.set(''.join(self.sentence[:self.count])+key)
+        #elif key in self.true_word:
+        else:
+            if key in self.true_word:
+                self.a['fg'] = '#ff0000'
+                self.buffer.set(''.join(self.sentence[:self.count])+key)
+            elif key == 'space':
+                self.num.value = 100
 
-def sound(audio_file):
-    track = 1
+def sound(audio_file,num):
+    track = 0
+    #press_key_func = {1:0, 2:-1, 3:-2, 4:+1} #押したキーに合わせてtrackを移動させる
     while(1):
+        '''
         if track >= 0:
-            for i in range(5):
-                subprocess.run(['aplay',audio_file[track]])
+            subprocess.run(['aplay',audio_file[track]])
             track += 1
-        if track == len(audio_file):
+        switch(num.Value):
+            if num.value == 1:    #pless space
+            track = 0
+            num.value
+        
+        if track >= len(audio_file):
             track = -1
+        '''
+        if track >= 0:
+            time.sleep(10)
+            track += 1
+        if num.value == 100:
+            track += 100
+            num.value = -1
+        print(track)
 
 textfile = './data/text/part4.txt'
 origin_sound_file = './data/sound/listening85.wav'
@@ -105,18 +127,18 @@ def main():
     chunks = split_on_silence(origin_sound, min_silence_len=50, silence_thresh=-60, keep_silence=6)
     for i, chunk in enumerate(chunks):
         chunk.export(split_sound_dir+'output' + str(i) +'.wav', format='wav')
-    
-    audio_file = []
-    for f in os.listdir(split_sound_dir):
-        file_name = split_sound_dir+f
-        audio_file.append(file_name)
-    audio_file.sort()
-    p = Process(target=sound,args=(audio_file,))
-    p.start()
 
+    audio_file = glob.glob(split_sound_dir+'*.wav')
+    audio_file.sort()
+
+    num = Value('i',-1)
+    p = Process(target=sound,args=(audio_file,num))
+    p.start()
     root = tk.Tk()
-    app = Application(master=root,sentence=sentence)#Inherit
+    app = Application(master=root,sentence=sentence,num=num)#Inherit
     app.mainloop()
+    p.terminate()
+
 
 if __name__ == "__main__":
     main()
