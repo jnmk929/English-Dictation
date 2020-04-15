@@ -15,12 +15,11 @@
 # ○            プロセス間でのデータのやりとり
 # その他:
 #   ・採点機能　間違い数のカウント　
-#   ・入力後に解答の表示
 #   ・複数の問題に対応
 #      ・同じ問題が連続して流れないように
 #   ・入力文字を予め ＿ で伏せて見せておく
 #   ・経過時間の計測,表示
-#   ・全体のリセットやり直し
+# ○ ・全体のリセットやり直し
 #
 #キーボード機能:
 #   ・space -> start repeat
@@ -109,6 +108,8 @@ class Application(tk.Frame):
             elif key == 'hint':
                 self.a['fg'] = '#008800'
                 self.buffer.set(''.join(self.sentence[:self.count]))
+            elif key == 'reset':
+                self.buffer.set(''.join(self.sentence[:self.count]))
     
     def button_function(self):
         self.hint_b = tk.Button(text='１文字ヒント',width=10,height=1,bg='#00aaff',command=self.one_hint,font=("",15))
@@ -117,14 +118,14 @@ class Application(tk.Frame):
         self.start_b = tk.Button(text='再生',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,1),font=("",15))
         self.start_b.place(x=350,y=740)
 
-        self.back_b = tk.Button(text='back',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,2),font=("",15))
+        self.back_b = tk.Button(text='戻る',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,2),font=("",15))
         self.back_b.place(x=630,y=740)
 
-        self.next_b = tk.Button(text='next',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,3),font=("",15))
+        self.next_b = tk.Button(text='進む',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,3),font=("",15))
         self.next_b.place(x=910,y=740)
 
-        #self.reset_b = tk.Button(text='next',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,3),font=("",15))
-        #self.reset_b.place(x=1190,y=740)
+        self.reset_b = tk.Button(text='リセット',width=10,height=1,bg='#ff0000',command=self.reset,font=("",15))
+        self.reset_b.place(x=1190,y=740)
 
     def one_hint(self):
         key = 'hint'
@@ -132,6 +133,14 @@ class Application(tk.Frame):
 
     def sound_func(self,num):
         self.num.value = num
+
+    def reset(self):
+        self.count = 0
+        self.row = 1
+        self.num.value = 0
+        self.output('reset')
+        self.sentence = [s for s in self.sentence if s != '\n']
+
 
 def sound(audio_file,num):
     track = 1
@@ -148,6 +157,8 @@ def sound(audio_file,num):
             elif num.value == 3:  #press Shift_R and next track
                 track -= 1
                 track = -track
+            elif num.value == 0:    #push reset button
+                track = 0
             num.value = -1
         if abs(track) >= len(audio_file) or track == 0:
             track = -1
