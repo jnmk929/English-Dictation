@@ -4,29 +4,28 @@
 # ○ ・大文字小文字関係なく入力できる　入力は小文字に統一
 # △・スペース等はスキップ ひとまず２連続　後々固有名詞など長めでも対応できるように
 # ○ ・いい感じで自動改行する 単位ごとに改行
-#   ・１文字ヒント機能
+# ○ ・１文字ヒント機能
 # ○ ・タイプミスの効果
 # 音声:
 # △・wavファイルが再生できる　子プロセスが終了しても音声は止まらないから、pygame pyaudio等に変えたほうがいい
 # ○ ・繰り返し　一時停止
 # ☓ ・数秒飛ばし戻し 3s 5s
 # ○    変更 -> soundファイルを空白部分で分割  分割の調整が必要
-# △            キーボードとマウスの入力から再生箇所を変える
+# ○            キーボードとマウスの入力から再生箇所を変える
 # ○            プロセス間でのデータのやりとり
 # その他:
 #   ・採点機能　間違い数のカウント　
 #   ・入力後に解答の表示
 #   ・複数の問題に対応
+#      ・同じ問題が連続して流れないように
 #   ・入力文字を予め ＿ で伏せて見せておく
-#   ・同じ問題が連続して流れないように
 #   ・経過時間の計測,表示
 #   ・全体のリセットやり直し
 #
 #キーボード機能:
-#   ・space -> stop or start
+#   ・space -> start repeat
 #   ・Shift_L -> back one track
-#   ・Shift_R -> skip one track
-#   ・Return(Enter) -> repeat
+#   ・Shift_R -> next track
 
 import tkinter as tk
 from pydub import AudioSegment
@@ -37,6 +36,7 @@ from multiprocessing import Process,Value
 import glob
 import time
 import re
+from functools import partial
 
 class Application(tk.Frame):
     count = 0
@@ -44,6 +44,10 @@ class Application(tk.Frame):
     true_word = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','1','2','3','4','5','6','7','8','9','0']
     skip_word = [" ",".",",",";","'","-","?","’"]
     row_limit_word = 60
+    hint = ''
+    flag_keyword = False
+    flag_skip = 0
+    flag_row = False
     def __init__(self,master,sentence,num):
         super().__init__(master)
         self.pack()
@@ -53,41 +57,48 @@ class Application(tk.Frame):
         self.master.title('ディクテーション')
         self.buffer = tk.StringVar()
         self.a = tk.Label(textvariable=self.buffer,font=('',30)) 
-        self.a.pack()
         self.a.bind('<Key>',self.input)
+        self.a.pack()
+        
+        self.button_function()
+
         self.a.focus_set()
     
     def input(self,event):
-        self.a['fg'] = '#000000'
-        flag_keyword = False
-        flag_skip = 0
-        flag_row = False
         key = event.keysym  #入力の受取
-        if key == self.sentence[self.count].lower():
+        self.output(key)
+        
+    def output(self,key):
+        self.flag_keyword = False
+        self.flag_skip = 0
+        self.flag_row = False
+        if key == self.sentence[self.count].lower() or key == 'hint':
             self.count += 1
-            flag_keyword = True
+            self.flag_keyword = True
         if self.sentence[self.count] in self.skip_word:
             if not self.sentence[self.count+1] in self.skip_word:
                 self.count += 1
-                flag_skip = 1
+                self.flag_skip = 1
             else:
                 self.count += 2
-                flag_skip = 2
+                self.flag_skip = 2
         if self.count > self.row_limit_word*self.row and self.sentence[self.count-1] == ' ':
             self.sentence.insert(self.count,'\n')
             self.count += 1
             self.row += 1
-            flag_row = True
-
-        if (flag_skip == 0 and flag_keyword == True and key == self.sentence[self.count-1].lower()) \
-          or (flag_skip == 1 and key == self.sentence[self.count-2].lower())\
-          or flag_row == True:
+            self.flag_row = True
+        
+        if (self.flag_skip == 0 and self.flag_keyword == True and key == self.sentence[self.count-1].lower()) \
+          or (self.flag_skip == 1 and key == self.sentence[self.count-2].lower())\
+          or self.flag_row == True:
+            self.a['fg'] = '#000000'
             self.buffer.set(''.join(self.sentence[:self.count]))
-        elif flag_skip == 2:
+        elif self.flag_skip == 2:
+            self.a['fg'] = '#000000'
             self.buffer.set(''.join(self.sentence[:self.count-1]))
         else:
             if key in self.true_word:
-                self.a['fg'] = '#ff0000'
+                self.a['fg'] = '#990000'
                 self.buffer.set(''.join(self.sentence[:self.count])+key)
             elif key == 'space':
                 self.num.value = 1
@@ -95,26 +106,50 @@ class Application(tk.Frame):
                 self.num.value = 2
             elif key == 'Shift_R':
                 self.num.value = 3
-            elif key == 'Return':
-                self.num.value = 4
+            elif key == 'hint':
+                self.a['fg'] = '#008800'
+                self.buffer.set(''.join(self.sentence[:self.count]))
+    
+    def button_function(self):
+        self.hint_b = tk.Button(text='１文字ヒント',width=10,height=1,bg='#00aaff',command=self.one_hint,font=("",15))
+        self.hint_b.place(x=70,y=740)
+        
+        self.start_b = tk.Button(text='再生',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,1),font=("",15))
+        self.start_b.place(x=350,y=740)
+
+        self.back_b = tk.Button(text='back',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,2),font=("",15))
+        self.back_b.place(x=630,y=740)
+
+        self.next_b = tk.Button(text='next',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,3),font=("",15))
+        self.next_b.place(x=910,y=740)
+
+        #self.reset_b = tk.Button(text='next',width=10,height=1,bg='#00aaff',command=partial(self.sound_func,3),font=("",15))
+        #self.reset_b.place(x=1190,y=740)
+
+    def one_hint(self):
+        key = 'hint'
+        self.output(key)
+
+    def sound_func(self,num):
+        self.num.value = num
 
 def sound(audio_file,num):
-    track = 0
+    track = 1
     while(1):
-        if track >= 0:
-            subprocess.run(['aplay',audio_file[track]])
-            track += 1
+        if track >= 1:
+            subprocess.run(['aplay',audio_file[track-1]])
+            track = -track
         if num.value != -1:
-            if num.value == 1:  #press space and stop  start
+            if num.value == 1:  #press space and repeat start
                 track = -track
-            elif num.value == 2:  #press Shift_L and back one track
-                track -= 2
-            elif num.value == 3:  #press Shift_R and skip one track
+            elif num.value == 2:  #press Shift_L and back track
                 track += 1
-            elif num.value == 4:  #press Retrun(Enter) and repeat this track
+                track = -track
+            elif num.value == 3:  #press Shift_R and next track
                 track -= 1
+                track = -track
             num.value = -1
-        if track >= len(audio_file):
+        if abs(track) >= len(audio_file) or track == 0:
             track = -1
 
 
@@ -138,6 +173,7 @@ def main():
     num = lambda val : int(re.sub("\\D","",val))  #\\D  任意の数字以外置換
     audio_file.sort(key=num)
     num = Value('i',-1)
+
     p = Process(target=sound,args=(audio_file,num))
     p.start()
     root = tk.Tk()
